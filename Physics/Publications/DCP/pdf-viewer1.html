@@ -109,7 +109,7 @@
   <div id="pdf-container"></div>
 
   <script>
-    const url = "IrodovSolutions.pdf"; // 🔗 your PDF file (use correct path, no spaces)
+    const url = "IrodovSolutions.pdf"; // 🔗 your PDF file (no spaces in name)
 
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -117,8 +117,7 @@
 
     let pdfDoc = null;
     const container = document.getElementById("pdf-container");
-    let zoomScale = 1.2; // default zoom
-    let initialPinchDistance = null;
+    let zoomScale = 1.2; // fixed scale (no pinch zoom)
 
     pdfjsLib.getDocument(url).promise.then(pdf => {
       pdfDoc = pdf;
@@ -179,40 +178,6 @@
         });
       });
     }
-
-    // 📱 Pinch-to-zoom support
-    document.addEventListener("touchstart", function (e) {
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
-      }
-    });
-
-    document.addEventListener("touchmove", function (e) {
-      if (e.touches.length === 2 && initialPinchDistance) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const currentDistance = Math.sqrt(dx * dx + dy * dy);
-
-        const scaleChange = (currentDistance - initialPinchDistance) / 200; 
-        if (Math.abs(scaleChange) > 0.05) { 
-          zoomScale = Math.max(0.5, zoomScale + scaleChange);
-          document.querySelectorAll("canvas").forEach(canvas => {
-            if (canvas.dataset.rendered) {
-              renderPage(parseInt(canvas.dataset.pageNum), canvas);
-            }
-          });
-          initialPinchDistance = currentDistance; // reset baseline
-        }
-      }
-    });
-
-    document.addEventListener("touchend", function (e) {
-      if (e.touches.length < 2) {
-        initialPinchDistance = null;
-      }
-    });
 
     // 🔒 Protection scripts
     document.addEventListener("contextmenu", e => e.preventDefault());
