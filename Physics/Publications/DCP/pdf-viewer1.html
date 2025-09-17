@@ -11,31 +11,7 @@
       margin: 0; 
       font-family: 'Poppins', sans-serif;
       background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
-    }
-
-    /* Loading screen */
-    #loading-screen {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(255,255,255,0.95);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 99999;
-      font-family: 'Poppins', sans-serif;
-    }
-    .loader {
-      border: 6px solid #f3f3f3;
-      border-top: 6px solid #007bff;
-      border-radius: 50%;
-      width: 50px; height: 50px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 15px;
-    }
-    @keyframes spin {
-      100% { transform: rotate(360deg); }
+      overflow-y: scroll; /* ensures scrollbar on right */
     }
 
     /* Navbar */
@@ -91,13 +67,37 @@
       padding: 3px 6px;
       border-radius: 4px;
     }
+
+    /* Loading screen */
+    #loading-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+    }
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #007bff;
+      border-radius: 50%;
+      width: 50px; height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
   <!-- Loading Screen -->
   <div id="loading-screen">
     <div class="loader"></div>
-    <div>Loading PDF, please wait...</div>
+    <div id="loading-text">Loading PDF, please wait...</div>
   </div>
 
   <!-- Navbar -->
@@ -109,7 +109,7 @@
   <div id="pdf-container"></div>
 
   <script>
-    const url = "IrodovSolutions.pdf"; // 🔗 your PDF file (no spaces in name)
+    const url = "IrodovSolutions.pdf"; // ⚠️ rename your file properly
 
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -117,7 +117,8 @@
 
     let pdfDoc = null;
     const container = document.getElementById("pdf-container");
-    let zoomScale = 1.2; // fixed scale (no pinch zoom)
+    let pagesRendered = 0;
+    let zoomScale = 1.2;
 
     pdfjsLib.getDocument(url).promise.then(pdf => {
       pdfDoc = pdf;
@@ -145,7 +146,14 @@
         container.appendChild(wrapper);
       }
 
-      // Lazy load rendering
+      // ✅ Pre-render first 50% of pages
+      const halfPages = Math.ceil(pdf.numPages * 0.5);
+      for (let i = 1; i <= halfPages; i++) {
+        const canvas = document.getElementById("page-" + i);
+        renderPage(i, canvas, true);
+      }
+
+      // ✅ Lazy load rest
       const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -163,7 +171,7 @@
       document.querySelectorAll("canvas").forEach(canvas => observer.observe(canvas));
     });
 
-    function renderPage(num, canvas) {
+    function renderPage(num, canvas, isPreload = false) {
       pdfDoc.getPage(num).then(page => {
         const viewport = page.getViewport({ scale: zoomScale });
         const context = canvas.getContext("2d");
@@ -171,10 +179,18 @@
         canvas.width = viewport.width;
 
         page.render({ canvasContext: context, viewport: viewport }).promise.then(() => {
-          if (num === 1) {
-            // Hide loading screen after first page renders
+          pagesRendered++;
+
+          // update progress text
+          const loadingText = document.getElementById("loading-text");
+          loadingText.textContent = `Loading… ${pagesRendered} / ${pdfDoc.numPages} pages`;
+
+          // ✅ Hide loader after 50% pages done
+          if (pagesRendered >= Math.ceil(pdfDoc.numPages * 0.5)) {
             document.getElementById("loading-screen").style.display = "none";
           }
+
+          canvas.dataset.rendered = true;
         });
       });
     }
@@ -191,18 +207,6 @@
         alert("Action disabled!");
       }
     });
-
-    // Transparent overlay (discourage screenshots)
-    const overlay = document.createElement("div");
-    overlay.style.position = "fixed";
-    overlay.style.top = "0";
-    overlay.style.left = "0";
-    overlay.style.width = "100%";
-    overlay.style.height = "100%";
-    overlay.style.zIndex = "9999";
-    overlay.style.pointerEvents = "none"; 
-    overlay.style.background = "rgba(255,255,255,0.001)";
-    document.body.appendChild(overlay);
   </script>
 </body>
 </html>
